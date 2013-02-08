@@ -1,6 +1,9 @@
+#!/usr/bin/env python
+
 import random
 import sys
 import pygame
+import gametimer
 from pygame.locals import *
 
 # Setting up constants
@@ -27,6 +30,12 @@ VIOLETRED = (205, 50, 120)
 MAROON = (139, 28, 98)
 CORNFLOWERBLUE = (100, 149, 237)
 DODGERBLUE = (30, 144, 255)
+CADETBLUE = (95, 158, 160)
+DARKGREEN = (0, 100, 0)
+STEELBLUE = (70, 130, 80)
+LIGHTSKYBLUE = (135, 206, 250)
+INDIANRED3 = (205, 85, 85)
+RED4 = (139, 0, 0)
 
 BGCOLOR = WHITE
 TILEFONTCOLOR = BLACK
@@ -66,13 +75,44 @@ DOUBLE_WORD_COLOR = CHARTREUSE
 TRIPPLE_WORD_COLOR = MAROON
 TEN_TIMES_COLOR = CORNFLOWERBLUE
 
-WORD_IN_PROGRESS_FONT_SIZE = 25
+WORD_IN_PROGRESS_FONT_SIZE = 30
 WORD_IN_PROGRESS_FONT_COLOR = DODGERBLUE
 WORD_IN_PROGRESS_FONT_CENTERX = XMARGIN + (TILESIZE + GAPBETWEENTILES) \
     * (BOARDWIDTH / 2)
 WORD_IN_PROGRESS_FONT_CENTERY = YMARGIN / 2
 
+TOP_LEFT_AND_RIGHT_TEXT_ADJUST = 5
+
+TIME_LEFT_FONT_SIZE = 25
+TIME_LEFT_FONT_COLOR = BLACK
+TIME_LEFT_FONT_LEFT = XMARGIN
+TIME_LEFT_FONT_TOP = YMARGIN / 2 - TOP_LEFT_AND_RIGHT_TEXT_ADJUST
+
+SCORE_FONT_SIZE = 25
+SCORE_FONT_COLOR = BLACK
+SCORE_FONT_RIGHT = XMARGIN + (TILESIZE + GAPBETWEENTILES) * BOARDWIDTH \
+    - GAPBETWEENTILES
+SCORE_FONT_BOTTOM = YMARGIN - TOP_LEFT_AND_RIGHT_TEXT_ADJUST
+
 STARTING_SCORE_GOAL = 1000
+
+WORDS_MADE_FONT_SIZE = 20
+WORDS_MADE_FONT_LEFT = (2 * XMARGIN) + (TILESIZE + GAPBETWEENTILES) \
+    * BOARDWIDTH - GAPBETWEENTILES
+WORDS_MADE_FONT_TOP = YMARGIN
+
+WORDS_MADE_LEVEL0_FONT_COLOR = LIGHTSKYBLUE
+WORDS_MADE_LEVEL1_FONT_COLOR = INDIANRED3
+WORDS_MADE_LEVEL2_FONT_COLOR = STEELBLUE
+WORDS_MADE_LEVEL3_FONT_COLOR = CADETBLUE
+WORDS_MADE_LEVEL4_FONT_COLOR = DARKGREEN
+WORDS_MADE_LEVEL5_FONT_COLOR = RED4
+
+WORDS_MADE_LEVEL1 = 50
+WORDS_MADE_LEVEL2 = 80
+WORDS_MADE_LEVEL3 = 100
+WORDS_MADE_LEVEL4 = 150
+WORDS_MADE_LEVEL5 = 200
 
 
 def main():
@@ -93,8 +133,14 @@ def main():
 
     # Mainboard variable storing the whole board data
     mainBoard = getRandomizedBoard()
+
+    # Create a timer object and start the timer for the game
+    timer = gametimer.Timer(2)
+    timer.start()
+
+    # Initialize variables
     selectedLetters = []
-    words_created = []
+    words_created = {}
     highlightedBox = None
     score = 0
     scoreGoal = STARTING_SCORE_GOAL
@@ -103,8 +149,15 @@ def main():
     while True:
         mouseClicked = False
 
+        timeLeft = timer.getTimeLeft()
+
+        if timeLeft is None:
+            print "Your score is " + str(score)
+            break
+
         DISPLAYSURF.fill(BGCOLOR)
-        drawBoard(mainBoard, selectedLetters, highlightedBox, score, scoreGoal)
+        drawBoard(mainBoard, selectedLetters, highlightedBox, score, scoreGoal,
+            timeLeft, words_created)
 
         for event in pygame.event.get():
             # If the event is quit (close window) then close the game
@@ -119,7 +172,6 @@ def main():
                     new_score = checkWord(mainBoard, selectedLetters,
                         all_words, words_created)
                     score += new_score
-                    print score
                     selectedLetters = []
 
             elif event.type == MOUSEMOTION:
@@ -142,6 +194,8 @@ def main():
 
         pygame.display.update()
         FPSCLOCK.tick(FPS)
+
+    terminate()
 
 
 def getRandomizedBoard():
@@ -208,7 +262,8 @@ def topLeftCoordsOfBox(boxX, boxY):
     return (left, top)
 
 
-def drawBoard(board, selectedLetters, highlightedBox, score, scoreGoal):
+def drawBoard(board, selectedLetters, highlightedBox, totalScore, scoreGoal,
+                timeLeft, words_created):
     """
         This function draws the board on the display surface
     """
@@ -243,16 +298,31 @@ def drawBoard(board, selectedLetters, highlightedBox, score, scoreGoal):
 
             drawTile(left, top, drawColor, letter, special, str(score))
 
-            # Draw word on top
-            word = ""
-            for letterPosition in selectedLetters:
-                word += board[letterPosition[1]][letterPosition[0]][0]
+    # Draw word on top
+    word = ""
+    for letterPosition in selectedLetters:
+        word += board[letterPosition[1]][letterPosition[0]][0]
 
-            if word != "":
-                drawText(word, WORD_IN_PROGRESS_FONT_SIZE,
-                    WORD_IN_PROGRESS_FONT_COLOR, BGCOLOR,
-                    center=(WORD_IN_PROGRESS_FONT_CENTERX,
-                    WORD_IN_PROGRESS_FONT_CENTERY))
+    if word != "":
+        drawText(word, WORD_IN_PROGRESS_FONT_SIZE,
+            WORD_IN_PROGRESS_FONT_COLOR, BGCOLOR,
+            center=(WORD_IN_PROGRESS_FONT_CENTERX,
+            WORD_IN_PROGRESS_FONT_CENTERY))
+
+    # Draw timer on top left
+    drawText(timeLeft, TIME_LEFT_FONT_SIZE,
+            TIME_LEFT_FONT_COLOR, BGCOLOR,
+            topLeft=(TIME_LEFT_FONT_LEFT,
+            TIME_LEFT_FONT_TOP))
+
+    # Draw totalScore on top right
+    drawText(str(totalScore), SCORE_FONT_SIZE,
+            SCORE_FONT_COLOR, BGCOLOR,
+            bottomRight=(SCORE_FONT_RIGHT,
+            SCORE_FONT_BOTTOM))
+
+    # Draw the list of words already made on the right
+    drawWordsCreated(words_created)
 
 
 def drawTile(left, top, color, letter, upperleft, lowerright):
@@ -357,20 +427,19 @@ def checkWord(board, selectedLetters, all_words, words_created):
         letter = letter.lower()
         word += letter
 
+    # Calculate final word score
+    if doubleWordCount > 0:
+        score = score * (2 * doubleWordCount)
+
+    if trippleWordCount > 0:
+        score = score * (3 * trippleWordCount)
+
+    if tenTimesWordCount > 0:
+        score = score * (10 * tenTimesWordCount)
+
     if word not in words_created:
         if word in all_words:
-            words_created.append(word)
-
-            # Calculate final word score
-            if doubleWordCount > 0:
-                score = score * (2 * doubleWordCount)
-
-            if trippleWordCount > 0:
-                score = score * (3 * trippleWordCount)
-
-            if tenTimesWordCount > 0:
-                score = score * (10 * tenTimesWordCount)
-
+            words_created[word] = score
             return score
 
     return 0
@@ -379,6 +448,51 @@ def checkWord(board, selectedLetters, all_words, words_created):
 def terminate():
     pygame.quit()
     sys.exit()
+
+
+def drawWordsCreated(words_created):
+    """
+        This function draws the list of words that the player
+        has already created
+    """
+
+    adjustment = 0
+
+    for word in words_created:
+        score = words_created[word]
+        word = word.upper()
+        fontColor = getWordsCreatedFontColor(score)
+
+        wordsCreatedText = word + " (" + str(score) + ")"
+
+        drawText(wordsCreatedText, WORDS_MADE_FONT_SIZE,
+                fontColor, BGCOLOR,
+                topLeft=(WORDS_MADE_FONT_LEFT,
+                WORDS_MADE_FONT_TOP + adjustment))
+        adjustment += WORDS_MADE_FONT_SIZE
+
+
+def getWordsCreatedFontColor(score):
+    """
+        This function returns the color of the font to be used for
+        the word. Depending on the score
+    """
+    color = BLACK
+
+    if score >= WORDS_MADE_LEVEL5:
+        color = WORDS_MADE_LEVEL5_FONT_COLOR
+    elif score >= WORDS_MADE_LEVEL4:
+        color = WORDS_MADE_LEVEL4_FONT_COLOR
+    elif score >= WORDS_MADE_LEVEL3:
+        color = WORDS_MADE_LEVEL3_FONT_COLOR
+    elif score >= WORDS_MADE_LEVEL2:
+        color = WORDS_MADE_LEVEL2_FONT_COLOR
+    elif score >= WORDS_MADE_LEVEL1:
+        color = WORDS_MADE_LEVEL1_FONT_COLOR
+    else:
+        color = WORDS_MADE_LEVEL0_FONT_COLOR
+
+    return color
 
 if __name__ == '__main__':
     main()
